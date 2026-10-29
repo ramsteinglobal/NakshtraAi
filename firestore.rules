@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // users/{uid}
+    // A role is written exactly once, at signup. After that it is immutable:
+    // a signed in account cannot promote itself to pandit (or back to user).
+    match /users/{uid} {
+      allow read: if isSelf(uid);
+
+      allow create: if isSelf(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['user', 'pandit'];
+
+      allow update: if isSelf(uid)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.uid == resource.data.uid;
+
+      allow delete: if false;
+    }
+
+    // Everything else is locked down until the owning step defines its rules.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

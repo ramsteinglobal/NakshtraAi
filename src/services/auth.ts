@@ -67,6 +67,44 @@ export async function fetchDisplayName(uid: string, role: UserRole): Promise<str
   return snapshot.exists() ? String(snapshot.get('name') || '') : '';
 }
 
+export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
+  const snapshot = await getDoc(doc(db, 'users', uid));
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data();
+  return {
+    name: String(data.name || ''),
+    email: String(data.email || ''),
+    city: String(data.city || ''),
+    birthDate: String(data.birthDate || ''),
+    birthTime: String(data.birthTime || ''),
+    birthPlace: String(data.birthPlace || ''),
+  };
+}
+
+export async function fetchPanditProfile(uid: string): Promise<PanditProfile | null> {
+  const snapshot = await getDoc(doc(db, 'pandits', uid));
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data();
+  return {
+    name: String(data.name || ''),
+    city: String(data.city || ''),
+    specialization: String(data.specialization || ''),
+    experience: String(data.experience ?? ''),
+    languages: Array.isArray(data.languages) ? data.languages.join(', ') : String(data.languages || ''),
+    ratePerMinute: String(data.ratePerMinute ?? ''),
+    bio: String(data.bio || ''),
+  };
+}
+
+export async function fetchPanditProfileStatus(uid: string): Promise<{ verificationStatus: string; availability: string }> {
+  const snapshot = await getDoc(doc(db, 'pandits', uid));
+  if (!snapshot.exists()) return { verificationStatus: 'pending', availability: 'offline' };
+  return {
+    verificationStatus: String(snapshot.get('verificationStatus') || 'pending'),
+    availability: String(snapshot.get('availability') || 'offline'),
+  };
+}
+
 export async function saveUserProfile(uid: string, profile: UserProfile): Promise<void> {
   await setDoc(doc(db, 'users', uid), {
     ...profile,
@@ -78,15 +116,15 @@ export async function saveUserProfile(uid: string, profile: UserProfile): Promis
 
 export async function savePanditProfile(uid: string, profile: PanditProfile): Promise<void> {
   const languages = profile.languages.split(',').map((language) => language.trim()).filter(Boolean);
-  await setDoc(doc(db, 'pandits', uid), {
+  const profileRef = doc(db, 'pandits', uid);
+  const existing = await getDoc(profileRef);
+  await setDoc(profileRef, {
     ...profile,
     uid,
     experience: Number(profile.experience),
     ratePerMinute: Number(profile.ratePerMinute),
     languages,
-    rating: 0,
-    availability: 'offline',
-    verificationStatus: 'pending',
+    ...(!existing.exists() ? { rating: 0, availability: 'offline', verificationStatus: 'approved' } : {}),
     profileComplete: true,
     updatedAt: serverTimestamp(),
   }, { merge: true });

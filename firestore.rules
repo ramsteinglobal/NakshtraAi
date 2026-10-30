@@ -27,15 +27,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Pandit profile fields are owner-editable, but verification and ratings
-    // are controlled by trusted admin/backend code, never by the client.
+    // TEMPORARY MVP BEHAVIOR: new Pandit profiles are approved at signup.
+    // Before production, restore admin/backend-only approval.
     match /pandits/{uid} {
       allow read: if signedIn();
 
       allow create: if isSelf(uid)
         && request.resource.data.uid == uid
         && request.resource.data.profileComplete == true
-        && request.resource.data.verificationStatus == 'pending'
+        && request.resource.data.verificationStatus == 'approved'
         && request.resource.data.rating == 0
         && request.resource.data.availability == 'offline'
         && request.resource.data.keys().hasOnly([

@@ -15,6 +15,8 @@ Astrology consultation app — one bare React Native app with two roles: **User*
 
 ## Docs
 
+- [PROGRESS.md](PROGRESS.md)
+- [AYUSHMAN_SETUP.md](AYUSHMAN_SETUP.md)
 - [REQUIREMENTS.md](REQUIREMENTS.md)
 - [DB_STRUCTURE.md](DB_STRUCTURE.md)
 - [WORKFLOW.md](WORKFLOW.md)

@@ -1,6 +1,6 @@
 import type { ConfirmationResult, User } from '@react-native-firebase/auth';
 import { onAuthStateChanged, signInWithPhoneNumber, signOut } from '@react-native-firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from '@react-native-firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from '@react-native-firebase/firestore';
 import { auth, db } from '../firebase';
 import type { UserRole } from '../types';
 
@@ -103,6 +103,10 @@ export async function fetchPanditProfileStatus(uid: string): Promise<{ verificat
     verificationStatus: String(snapshot.get('verificationStatus') || 'pending'),
     availability: String(snapshot.get('availability') || 'offline'),
   };
+}
+
+export async function updatePanditAvailability(uid: string, availability: 'online' | 'offline'): Promise<void> {
+  await updateDoc(doc(db, 'pandits', uid), { availability, updatedAt: serverTimestamp() });
 }
 
 export async function saveUserProfile(uid: string, profile: UserProfile): Promise<void> {

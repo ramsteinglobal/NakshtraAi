@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import type { UserRole } from '../types';
 import PanditListScreen from './PanditListScreen';
 import ProfileScreen from './ProfileScreen';
 import { fetchApprovedPandits, type Pandit } from '../services/pandits';
+import { fetchPanditProfileStatus, updatePanditAvailability } from '../services/auth';
 
 type Props = { role: UserRole; uid: string; name?: string; onSignOut: () => void };
 type UserTab = 'home' | 'pandits' | 'wallet' | 'history' | 'profile';
@@ -14,6 +15,10 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
   const [popular, setPopular] = useState<Pandit[]>([]);
   const [popularLoading, setPopularLoading] = useState(true);
   const [panditProfileOpen, setPanditProfileOpen] = useState(false);
+  const [availability, setAvailability] = useState<'online' | 'offline'>('offline');
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
 
   useEffect(() => {
     if (isPandit) return;
@@ -24,6 +29,30 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
       .finally(() => { if (active) setPopularLoading(false); });
     return () => { active = false; };
   }, [isPandit]);
+
+  useEffect(() => {
+    if (!isPandit) return;
+    let active = true;
+    fetchPanditProfileStatus(uid)
+      .then((status) => { if (active) setAvailability(status.availability === 'online' ? 'online' : 'offline'); })
+      .catch(() => { if (active) setAvailabilityError('Could not load your availability.'); })
+      .finally(() => { if (active) setAvailabilityLoading(false); });
+    return () => { active = false; };
+  }, [isPandit, uid]);
+
+  async function toggleAvailability(value: boolean) {
+    const next = value ? 'online' : 'offline';
+    setAvailabilitySaving(true);
+    setAvailabilityError('');
+    try {
+      await updatePanditAvailability(uid, next);
+      setAvailability(next);
+    } catch {
+      setAvailabilityError('Could not update availability. Please try again.');
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  }
 
   if (isPandit) {
     if (panditProfileOpen) {
@@ -46,18 +75,23 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
           <View style={styles.welcomeMark}><Text style={styles.welcomeOm}>ॐ</Text></View>
         </View>
 
-        <View style={styles.reviewCard}>
-          <View style={styles.reviewCardTop}>
-            <View style={styles.reviewIcon}><Text style={styles.reviewIconText}>✓</Text></View>
-            <View style={styles.reviewTitleWrap}>
-              <Text style={styles.reviewTitle}>Profile under review</Text>
-              <Text style={styles.reviewSubtitle}>We’ll notify you when it’s approved.</Text>
-            </View>
+        <View style={styles.availabilityCard}>
+          <View style={styles.availabilityCopy}>
+            <Text style={styles.availabilityTitle}>Your availability</Text>
+            <Text style={styles.availabilityCaption}>{availability === 'online' ? 'You are marked available.' : 'You are currently offline.'}</Text>
           </View>
-          <View style={styles.reviewDivider} />
-          <View style={styles.statusBadge}><View style={styles.statusDot} /><Text style={styles.statusBadgeText}>VERIFICATION PENDING</Text></View>
-          <Text style={styles.reviewBody}>Your profile is saved. You’ll be able to receive consultation requests after verification.</Text>
+          {availabilityLoading ? <ActivityIndicator color="#512779" /> : (
+            <Switch
+              value={availability === 'online'}
+              onValueChange={toggleAvailability}
+              disabled={availabilitySaving}
+              trackColor={{ false: '#D9D4DC', true: '#BCA4D1' }}
+              thumbColor={availability === 'online' ? '#512779' : '#F5F2F6'}
+            />
+          )}
         </View>
+        {availabilityError ? <Text style={styles.availabilityError}>{availabilityError}</Text> : null}
+        <Text style={styles.availabilityNote}>Your status is saved to your profile. Incoming request delivery will be connected in a later step.</Text>
 
         <Pressable style={styles.profileAction} onPress={() => setPanditProfileOpen(true)}>
           <View style={styles.profileActionIcon}><Text style={styles.profileActionIconText}>✧</Text></View>
@@ -65,42 +99,28 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
           <Text style={styles.profileActionArrow}>›</Text>
         </Pressable>
 
-        <Text style={styles.panditSectionTitle}>Your journey</Text>
-        <View style={styles.journeyCard}>
-          <View style={styles.journeyRow}>
-            <View style={styles.journeyIconDone}><Text style={styles.journeyIconText}>✓</Text></View>
-            <View style={styles.journeyCopy}><Text style={styles.journeyTitle}>Profile details submitted</Text><Text style={styles.journeyCaption}>Your experience and services are on file</Text></View>
-            <Text style={styles.journeyStateDone}>Done</Text>
-          </View>
-          <View style={styles.journeyLine} />
-          <View style={styles.journeyRow}>
-            <View style={styles.journeyIconPending}><Text style={styles.journeyPendingText}>2</Text></View>
-            <View style={styles.journeyCopy}><Text style={styles.journeyTitle}>Verification</Text><Text style={styles.journeyCaption}>We’re reviewing your profile</Text></View>
-            <Text style={styles.journeyStatePending}>In progress</Text>
-          </View>
-          <View style={styles.journeyLine} />
-          <View style={styles.journeyRow}>
-            <View style={styles.journeyIconLocked}><Text style={styles.lockText}>⌑</Text></View>
-            <View style={styles.journeyCopy}><Text style={styles.journeyTitle}>Start consultations</Text><Text style={styles.journeyCaption}>Unlock after verification</Text></View>
-            <Text style={styles.journeyStateLocked}>Locked</Text>
-          </View>
+        <Text style={styles.panditSectionTitle}>Today at a glance</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Consultations</Text><Text style={styles.statCaption}>Not connected yet</Text></View>
+          <View style={styles.statCard}><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Earnings</Text><Text style={styles.statCaption}>Not connected yet</Text></View>
+          <View style={styles.statCard}><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Rating</Text><Text style={styles.statCaption}>After first review</Text></View>
         </View>
 
-        <Text style={styles.panditSectionTitle}>Your workspace</Text>
-        <View style={styles.workspaceCard}>
-          <View style={styles.workspaceIcon}><Text style={styles.workspaceIconText}>✧</Text></View>
-          <View style={styles.workspaceCopy}><Text style={styles.workspaceTitle}>Availability</Text><Text style={styles.workspaceCaption}>You’re offline while your profile is under review.</Text></View>
-          <View style={styles.offlinePill}><View style={styles.offlineDot} /><Text style={styles.offlineText}>Offline</Text></View>
+        <View style={styles.panditSectionHeader}>
+          <Text style={styles.sectionTitle}>Incoming requests</Text>
+          <Text style={styles.viewAll}>View all</Text>
         </View>
-        <View style={styles.workspaceCard}>
-          <View style={[styles.workspaceIcon, styles.goldIcon]}><Text style={styles.goldIconText}>₹</Text></View>
-          <View style={styles.workspaceCopy}><Text style={styles.workspaceTitle}>Earnings</Text><Text style={styles.workspaceCaption}>Your consultation earnings will appear here.</Text></View>
-          <Text style={styles.workspaceArrow}>›</Text>
+        <View style={styles.emptyDashboardCard}><View style={styles.emptyIcon}><Text style={styles.emptyIconText}>◷</Text></View><Text style={styles.emptyDashboardTitle}>No requests yet</Text><Text style={styles.emptyDashboardText}>New consultation requests will show up here.</Text></View>
+
+        <View style={styles.panditSectionHeader}>
+          <Text style={styles.sectionTitle}>Recent activity</Text>
+          <Text style={styles.viewAll}>History</Text>
         </View>
+        <View style={styles.emptyActivity}><Text style={styles.emptyDashboardText}>Your completed consultations and earnings will appear here.</Text></View>
 
         <View style={styles.helpCard}>
-          <Text style={styles.helpTitle}>Need help?</Text>
-          <Text style={styles.helpText}>Your profile is saved. Verification and consultation tools will be available in the next steps.</Text>
+          <Text style={styles.helpTitle}>Ready to help someone?</Text>
+          <Text style={styles.helpText}>Keep your profile up to date. Requests, consultations and earnings will appear here as those features are connected.</Text>
         </View>
       </ScrollView>
     );
@@ -184,6 +204,24 @@ const styles = StyleSheet.create({
   panditHeadline: { color: '#251A30', fontSize: 22, lineHeight: 28, fontWeight: '800', marginTop: 7 },
   welcomeMark: { width: 58, height: 58, borderRadius: 29, borderWidth: 1, borderColor: '#E7BD60', backgroundColor: '#F0E5F6', alignItems: 'center', justifyContent: 'center' },
   welcomeOm: { color: '#512779', fontSize: 29 },
+  availabilityCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 15, paddingHorizontal: 15, paddingVertical: 14 },
+  availabilityCopy: { flex: 1 },
+  availabilityTitle: { color: '#342A3D', fontSize: 14, fontWeight: '800' },
+  availabilityCaption: { color: '#89828E', fontSize: 11, marginTop: 4 },
+  availabilityError: { color: '#B3261E', fontSize: 12, marginTop: 7 },
+  availabilityNote: { color: '#89828E', fontSize: 10, lineHeight: 15, marginTop: 7, paddingHorizontal: 2 },
+  statsRow: { flexDirection: 'row', gap: 8 },
+  statCard: { flex: 1, minHeight: 90, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 14, padding: 10 },
+  statValue: { color: '#351759', fontSize: 20, fontWeight: '800' },
+  statLabel: { color: '#342A3D', fontSize: 10, fontWeight: '800', marginTop: 5 },
+  statCaption: { color: '#89828E', fontSize: 8, marginTop: 3 },
+  panditSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 13, marginBottom: 10 },
+  emptyDashboardCard: { alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 15, padding: 20 },
+  emptyIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F0E5F6', alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
+  emptyIconText: { color: '#512779', fontSize: 20 },
+  emptyDashboardTitle: { color: '#342A3D', fontSize: 14, fontWeight: '800', marginBottom: 5 },
+  emptyDashboardText: { color: '#89828E', fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  emptyActivity: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 14, padding: 16 },
   reviewCard: { backgroundColor: '#351759', borderRadius: 17, padding: 17 },
   reviewCardTop: { flexDirection: 'row', alignItems: 'center' },
   reviewIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#4B2C6B', alignItems: 'center', justifyContent: 'center', marginRight: 11 },

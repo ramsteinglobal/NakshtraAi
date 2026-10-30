@@ -1,10 +1,11 @@
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import RoleScreen from './src/screens/RoleScreen';
-import { fetchRole, signOutUser, watchAuth } from './src/services/auth';
+import { fetchDisplayName, fetchProfileComplete, fetchRole, signOutUser, watchAuth } from './src/services/auth';
 import type { UserRole } from './src/types';
 
 type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
@@ -13,21 +14,37 @@ export default function App() {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [uid, setUid] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
+  const [profileComplete, setProfileComplete] = useState(false);
+  const [displayName, setDisplayName] = useState('');
 
   useEffect(() => {
     return watchAuth(async (user) => {
       if (!user) {
         setUid(null);
         setRole(null);
+        setProfileComplete(false);
+        setDisplayName('');
         setStatus('signedOut');
         return;
       }
 
       setUid(user.uid);
       try {
-        setRole(await fetchRole(user.uid));
+        const userRole = await fetchRole(user.uid);
+        setRole(userRole);
+        if (userRole) {
+          const [complete, name] = await Promise.all([
+            fetchProfileComplete(user.uid, userRole),
+            fetchDisplayName(user.uid, userRole),
+          ]);
+          setProfileComplete(complete);
+          setDisplayName(name);
+        } else {
+          setProfileComplete(false);
+        }
       } catch {
         setRole(null);
+        setProfileComplete(false);
       }
       setStatus('signedIn');
     });
@@ -37,6 +54,8 @@ export default function App() {
     await signOutUser();
     setStatus('signedOut');
     setRole(null);
+    setProfileComplete(false);
+    setDisplayName('');
     setUid(null);
   }, []);
 
@@ -50,13 +69,25 @@ export default function App() {
 
   return (
     <View style={styles.app}>
-      <StatusBar style="dark" />
+      <StatusBar barStyle="dark-content" />
       {status === 'signedOut' || !uid ? (
         <LoginScreen />
+      ) : role && profileComplete ? (
+        <HomeScreen role={role} uid={uid} name={displayName} onSignOut={handleSignedOut} />
       ) : role ? (
-        <HomeScreen role={role} uid={uid} onSignOut={handleSignedOut} />
+        <ProfileSetupScreen
+          uid={uid}
+          role={role}
+          onComplete={(name) => {
+            setProfileComplete(true);
+            setDisplayName(name);
+          }}
+        />
       ) : (
-        <RoleScreen uid={uid} onRoleSelected={setRole} />
+        <RoleScreen uid={uid} onRoleSelected={(selectedRole) => {
+          setRole(selectedRole);
+          setProfileComplete(false);
+        }} />
       )}
     </View>
   );

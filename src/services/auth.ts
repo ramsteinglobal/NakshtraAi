@@ -1,6 +1,6 @@
-import type { ConfirmationResult, User } from 'firebase/auth';
-import { onAuthStateChanged, signInWithPhoneNumber, signOut } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import type { ConfirmationResult, User } from '@react-native-firebase/auth';
+import { onAuthStateChanged, signInWithPhoneNumber, signOut } from '@react-native-firebase/auth';
+import { doc, getDoc, serverTimestamp, setDoc } from '@react-native-firebase/firestore';
 import { auth, db } from '../firebase';
 import type { UserRole } from '../types';
 
@@ -34,6 +34,62 @@ export async function fetchRole(uid: string): Promise<UserRole | null> {
   }
   const role = snapshot.get('role');
   return role === 'user' || role === 'pandit' ? role : null;
+}
+
+export type UserProfile = {
+  name: string;
+  email: string;
+  city: string;
+  birthDate: string;
+  birthTime: string;
+  birthPlace: string;
+};
+
+export type PanditProfile = {
+  name: string;
+  city: string;
+  specialization: string;
+  experience: string;
+  languages: string;
+  ratePerMinute: string;
+  bio: string;
+};
+
+export async function fetchProfileComplete(uid: string, role: UserRole): Promise<boolean> {
+  const collection = role === 'pandit' ? 'pandits' : 'users';
+  const snapshot = await getDoc(doc(db, collection, uid));
+  return snapshot.exists() && snapshot.get('profileComplete') === true;
+}
+
+export async function fetchDisplayName(uid: string, role: UserRole): Promise<string> {
+  const collection = role === 'pandit' ? 'pandits' : 'users';
+  const snapshot = await getDoc(doc(db, collection, uid));
+  return snapshot.exists() ? String(snapshot.get('name') || '') : '';
+}
+
+export async function saveUserProfile(uid: string, profile: UserProfile): Promise<void> {
+  await setDoc(doc(db, 'users', uid), {
+    ...profile,
+    uid,
+    profileComplete: true,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function savePanditProfile(uid: string, profile: PanditProfile): Promise<void> {
+  const languages = profile.languages.split(',').map((language) => language.trim()).filter(Boolean);
+  await setDoc(doc(db, 'pandits', uid), {
+    ...profile,
+    uid,
+    experience: Number(profile.experience),
+    ratePerMinute: Number(profile.ratePerMinute),
+    languages,
+    rating: 0,
+    availability: 'offline',
+    verificationStatus: 'pending',
+    profileComplete: true,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 /**

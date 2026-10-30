@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   typecheck:
-    name: Typecheck and Expo config
+    name: Typecheck and Firestore rules
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -34,8 +34,6 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
 
-      - name: Validate Expo app config
-        run: npx expo config --type public > /dev/null
 
       - name: Validate Firestore rules
         run: test -s firestore.rules

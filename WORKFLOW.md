@@ -26,7 +26,7 @@
 
 ## Step 3 — Indrabhan
 
-- React Native + Expo setup
+- Bare React Native CLI setup
 - Navigation config
 - Shared components
 - User side screens: Login, Home, Pandit List, Pandit Profile, Wallet, Transaction History

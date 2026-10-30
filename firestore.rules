@@ -10,6 +10,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // Trusted reviewers. The `admin` custom claim is set from the Firebase
+    // console or by Cloud Functions only, so no client can self-refer.
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
     // users/{uid}
     // A role is written exactly once, at signup. After that it is immutable:
     // a signed in account cannot promote itself to pandit (or back to user).
@@ -44,17 +50,101 @@ service cloud.firestore {
           'profileComplete', 'updatedAt'
         ]);
 
-      allow update: if isSelf(uid)
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.verificationStatus == resource.data.verificationStatus
-        && request.resource.data.rating == resource.data.rating
+      // Clients (the pandit owner) may edit profile fields only.
+      // Admins may change verificationStatus/rating too.
+      allow update: if (isAdmin()
+          && request.resource.data.keys().hasOnly([
+            'uid', 'name', 'city', 'specialization', 'experience', 'languages',
+            'ratePerMinute', 'bio', 'rating', 'availability', 'verificationStatus',
+            'profileComplete', 'updatedAt'
+          ]))
+        || (isSelf(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.verificationStatus == resource.data.verificationStatus
+          && request.resource.data.rating == resource.data.rating
+          && request.resource.data.keys().hasOnly([
+            'uid', 'name', 'city', 'specialization', 'experience', 'languages',
+            'ratePerMinute', 'bio', 'rating', 'availability', 'verificationStatus',
+            'profileComplete', 'updatedAt'
+          ]));
+
+      allow delete: if false;
+    }
+
+    // consultations/{callId}
+    // State machine: REQUESTED -> PAYMENT_PENDING -> RINGING -> ACCEPTED ->
+    // CONNECTED -> ENDED -> SETTLED. The user opens the call; both sides can
+    // move it through its status flow. Identity and money fields are immutable
+    // on the client — billing/refund logic becomes trusted Cloud Function work
+    // in Step 2 (Anurag) and Step 4 (Prachi).
+    match /consultations/{callId} {
+      function isCallParticipant() {
+        return signedIn()
+          && (resource.data.userId == request.auth.uid
+            || resource.data.panditId == request.auth.uid);
+      }
+
+      allow read: if isCallParticipant();
+
+      // Only an existing, approved pandit can be requested, unpaid and at the
+      // first state of the machine.
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'REQUESTED'
+        && request.resource.data.mode in ['chat', 'audio', 'video']
+        && request.resource.data.amountPaid == 0
+        && request.resource.data.refundAmount == 0
+        && get(/databases/$(database)/documents/pandits/$(request.resource.data.panditId)).data.verificationStatus == 'approved'
         && request.resource.data.keys().hasOnly([
-          'uid', 'name', 'city', 'specialization', 'experience', 'languages',
-          'ratePerMinute', 'bio', 'rating', 'availability', 'verificationStatus',
-          'profileComplete', 'updatedAt'
+          'userId', 'panditId', 'status', 'mode', 'amountPaid',
+          'refundAmount', 'connectedAt', 'endedAt', 'createdAt', 'updatedAt'
+        ]);
+
+      allow update: if isCallParticipant()
+        && request.resource.data.keys().hasOnly([
+          'userId', 'panditId', 'status', 'mode', 'amountPaid',
+          'refundAmount', 'connectedAt', 'endedAt', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'connectedAt', 'endedAt', 'updatedAt'
         ]);
 
       allow delete: if false;
+
+      // messages/{messageId} — chat inside a consultation.
+      // Only participants read or write, only plain text for now
+      // (image messages arrive with Firebase Storage in a later step).
+      match /messages/{messageId} {
+        function parentCall() {
+          let call = get(/databases/$(database)/documents/consultations/$(callId)).data;
+          return signedIn()
+            && (call.userId == request.auth.uid || call.panditId == request.auth.uid);
+        }
+
+        allow read: if parentCall();
+
+        allow create: if parentCall()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.type == 'text'
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.keys().hasOnly(['senderId', 'text', 'type', 'createdAt', 'readAt']);
+
+        // The only client edit is marking a message as read.
+        allow update: if parentCall()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
+
+        allow delete: if false;
+      }
+    }
+
+    // transactions/{txnId} — written only by Cloud Functions (Step 2 — Anurag).
+    // The client is read-only so payments, earnings and refunds cannot be forged.
+    match /transactions/{txnId} {
+      allow read: if isSelf(resource.data.userId);
+
+      allow write: if false;
     }
 
     // Everything else is locked down until the owning step defines its rules.

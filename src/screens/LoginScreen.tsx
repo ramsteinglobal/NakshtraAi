@@ -1,4 +1,4 @@
-import type { ConfirmationResult } from 'firebase/auth';
+import type { ConfirmationResult } from '@react-native-firebase/auth';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,

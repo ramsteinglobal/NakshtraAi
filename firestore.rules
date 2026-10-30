@@ -27,6 +27,36 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Pandit profile fields are owner-editable, but verification and ratings
+    // are controlled by trusted admin/backend code, never by the client.
+    match /pandits/{uid} {
+      allow read: if signedIn();
+
+      allow create: if isSelf(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.profileComplete == true
+        && request.resource.data.verificationStatus == 'pending'
+        && request.resource.data.rating == 0
+        && request.resource.data.availability == 'offline'
+        && request.resource.data.keys().hasOnly([
+          'uid', 'name', 'city', 'specialization', 'experience', 'languages',
+          'ratePerMinute', 'bio', 'rating', 'availability', 'verificationStatus',
+          'profileComplete', 'updatedAt'
+        ]);
+
+      allow update: if isSelf(uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.verificationStatus == resource.data.verificationStatus
+        && request.resource.data.rating == resource.data.rating
+        && request.resource.data.keys().hasOnly([
+          'uid', 'name', 'city', 'specialization', 'experience', 'languages',
+          'ratePerMinute', 'bio', 'rating', 'availability', 'verificationStatus',
+          'profileComplete', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
     // Everything else is locked down until the owning step defines its rules.
     match /{document=**} {
       allow read, write: if false;

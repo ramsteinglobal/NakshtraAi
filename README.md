@@ -1,10 +1,10 @@
 # NakshatraAI
 
-Astrology consultation app — one React Native (Expo) app with two roles: **User** and **Pandit**.
+Astrology consultation app — one bare React Native app with two roles: **User** and **Pandit**.
 
 | Area | Technology |
 | --- | --- |
-| Mobile app | React Native + Expo |
+| Mobile app | React Native CLI |
 | Auth | Firebase Authentication (phone OTP) |
 | Database | Cloud Firestore |
 | Notifications | Firebase Cloud Messaging |
@@ -23,14 +23,14 @@ Astrology consultation app — one React Native (Expo) app with two roles: **Use
 
 ## Local setup
 
-```bash
+```powershell
 npm install
-cp .env.example .env   # then fill in the Firebase web app config
 npm start
+# In another terminal, with an Android device/emulator connected:
+npm run android
 ```
 
-`google-services.json` (Android) and `GoogleService-Info.plist` (iOS) are **not** committed.
-Download them from the Firebase console and drop them in the project root before running phone auth on a device.
+In Firebase Console, register an Android app with package `com.nakshatraai` and place its downloaded `google-services.json` at `android/app/google-services.json`. The Google Services Gradle plugin reads this file for the native Firebase SDK. It is ignored by Git.
 
 ### Firebase console checklist (Step 1 — Ayushman)
 
@@ -38,7 +38,7 @@ Download them from the Firebase console and drop them in the project root before
 2. Enable **Authentication → Phone** and add test numbers.
 3. Create **Firestore** (production mode) and deploy the rules: `firebase deploy --only firestore:rules`.
 4. Enable **Storage** and **Cloud Messaging**.
-5. Add the SHA-1 / SHA-256 fingerprints so Play Integrity app verification works for OTP.
+5. Add SHA-1 and SHA-256 fingerprints from `cd android; .\gradlew.bat signingReport` so phone OTP app verification works.
 
 Roles live in `users/{uid}.role`. The account writes it once at first sign-in and
 `firestore.rules` rejects every update that changes it, so nobody can promote themselves.
@@ -47,5 +47,5 @@ Roles live in `users/{uid}.role`. The account writes it once at first sign-in an
 
 | Workflow | What it does |
 | --- | --- |
-| `.github/workflows/ci.yml` | Installs deps, runs TypeScript, validates the Expo config and Firestore rules |
-| `.github/workflows/android-debug.yml` | Expo prebuild + `./gradlew assembleDebug`, uploads `app-debug.apk` |
+| `.github/workflows/ci.yml` | Installs deps, runs TypeScript, validates Firestore rules |
+| `.github/workflows/android-debug.yml` | `./gradlew assembleDebug`, uploads `app-debug.apk` |

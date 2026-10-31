@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import type { UserRole } from '../types';
 import PanditListScreen from './PanditListScreen';
+import ProfileScreen from './ProfileScreen';
 import { fetchApprovedPandits, type Pandit } from '../services/pandits';
+import { fetchPanditProfileStatus, updatePanditAvailability } from '../services/auth';
 
 type Props = { role: UserRole; uid: string; name?: string; onSignOut: () => void };
-type UserTab = 'home' | 'pandits' | 'wallet' | 'history';
+type UserTab = 'home' | 'pandits' | 'wallet' | 'history' | 'profile';
 
 export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
   const isPandit = role === 'pandit';
   const [tab, setTab] = useState<UserTab>('home');
   const [popular, setPopular] = useState<Pandit[]>([]);
   const [popularLoading, setPopularLoading] = useState(true);
+  const [panditProfileOpen, setPanditProfileOpen] = useState(false);
+  const [availability, setAvailability] = useState<'online' | 'offline'>('offline');
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
 
   useEffect(() => {
     if (isPandit) return;
@@ -23,7 +30,34 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
     return () => { active = false; };
   }, [isPandit]);
 
+  useEffect(() => {
+    if (!isPandit) return;
+    let active = true;
+    fetchPanditProfileStatus(uid)
+      .then((status) => { if (active) setAvailability(status.availability === 'online' ? 'online' : 'offline'); })
+      .catch(() => { if (active) setAvailabilityError('Could not load your availability.'); })
+      .finally(() => { if (active) setAvailabilityLoading(false); });
+    return () => { active = false; };
+  }, [isPandit, uid]);
+
+  async function toggleAvailability(value: boolean) {
+    const next = value ? 'online' : 'offline';
+    setAvailabilitySaving(true);
+    setAvailabilityError('');
+    try {
+      await updatePanditAvailability(uid, next);
+      setAvailability(next);
+    } catch {
+      setAvailabilityError('Could not update availability. Please try again.');
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  }
+
   if (isPandit) {
+    if (panditProfileOpen) {
+      return <ProfileScreen uid={uid} role="pandit" onBack={() => setPanditProfileOpen(false)} onSignOut={onSignOut} />;
+    }
     return (
       <ScrollView style={styles.panditScreen} contentContainerStyle={styles.panditContent}>
         <View style={styles.panditHeader}>
@@ -31,7 +65,6 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
             <Text style={styles.panditBrand}>NakshatraAI</Text>
             <Text style={styles.panditHeaderCaption}>PANDIT PARTNER</Text>
           </View>
-          <Pressable style={styles.headerSignOut} onPress={onSignOut}><Text style={styles.headerSignOutText}>Sign out</Text></Pressable>
         </View>
 
         <View style={styles.panditWelcome}>
@@ -42,55 +75,52 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
           <View style={styles.welcomeMark}><Text style={styles.welcomeOm}>ॐ</Text></View>
         </View>
 
-        <View style={styles.reviewCard}>
-          <View style={styles.reviewCardTop}>
-            <View style={styles.reviewIcon}><Text style={styles.reviewIconText}>✓</Text></View>
-            <View style={styles.reviewTitleWrap}>
-              <Text style={styles.reviewTitle}>Profile under review</Text>
-              <Text style={styles.reviewSubtitle}>We’ll notify you when it’s approved.</Text>
-            </View>
+        <View style={styles.availabilityCard}>
+          <View style={styles.availabilityCopy}>
+            <Text style={styles.availabilityTitle}>Your availability</Text>
+            <Text style={styles.availabilityCaption}>{availability === 'online' ? 'You are marked available.' : 'You are currently offline.'}</Text>
           </View>
-          <View style={styles.reviewDivider} />
-          <View style={styles.statusBadge}><View style={styles.statusDot} /><Text style={styles.statusBadgeText}>VERIFICATION PENDING</Text></View>
-          <Text style={styles.reviewBody}>Your profile is saved. You’ll be able to receive consultation requests after verification.</Text>
+          {availabilityLoading ? <ActivityIndicator color="#512779" /> : (
+            <Switch
+              value={availability === 'online'}
+              onValueChange={toggleAvailability}
+              disabled={availabilitySaving}
+              trackColor={{ false: '#D9D4DC', true: '#BCA4D1' }}
+              thumbColor={availability === 'online' ? '#512779' : '#F5F2F6'}
+            />
+          )}
+        </View>
+        {availabilityError ? <Text style={styles.availabilityError}>{availabilityError}</Text> : null}
+        <Text style={styles.availabilityNote}>Your status is saved to your profile. Incoming request delivery will be connected in a later step.</Text>
+
+        <Pressable style={styles.profileAction} onPress={() => setPanditProfileOpen(true)}>
+          <View style={styles.profileActionIcon}><Text style={styles.profileActionIconText}>✧</Text></View>
+          <View style={styles.profileActionCopy}><Text style={styles.profileActionTitle}>View and edit profile</Text><Text style={styles.profileActionCaption}>Update your public Pandit details</Text></View>
+          <Text style={styles.profileActionArrow}>›</Text>
+        </Pressable>
+
+        <Text style={styles.panditSectionTitle}>Today at a glance</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Consultations</Text><Text style={styles.statCaption}>Not connected yet</Text></View>
+          <View style={styles.statCard}><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Earnings</Text><Text style={styles.statCaption}>Not connected yet</Text></View>
+          <View style={styles.statCard}><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Rating</Text><Text style={styles.statCaption}>After first review</Text></View>
         </View>
 
-        <Text style={styles.panditSectionTitle}>Your journey</Text>
-        <View style={styles.journeyCard}>
-          <View style={styles.journeyRow}>
-            <View style={styles.journeyIconDone}><Text style={styles.journeyIconText}>✓</Text></View>
-            <View style={styles.journeyCopy}><Text style={styles.journeyTitle}>Profile details submitted</Text><Text style={styles.journeyCaption}>Your experience and services are on file</Text></View>
-            <Text style={styles.journeyStateDone}>Done</Text>
-          </View>
-          <View style={styles.journeyLine} />
-          <View style={styles.journeyRow}>
-            <View style={styles.journeyIconPending}><Text style={styles.journeyPendingText}>2</Text></View>
-            <View style={styles.journeyCopy}><Text style={styles.journeyTitle}>Verification</Text><Text style={styles.journeyCaption}>We’re reviewing your profile</Text></View>
-            <Text style={styles.journeyStatePending}>In progress</Text>
-          </View>
-          <View style={styles.journeyLine} />
-          <View style={styles.journeyRow}>
-            <View style={styles.journeyIconLocked}><Text style={styles.lockText}>⌑</Text></View>
-            <View style={styles.journeyCopy}><Text style={styles.journeyTitle}>Start consultations</Text><Text style={styles.journeyCaption}>Unlock after verification</Text></View>
-            <Text style={styles.journeyStateLocked}>Locked</Text>
-          </View>
+        <View style={styles.panditSectionHeader}>
+          <Text style={styles.sectionTitle}>Incoming requests</Text>
+          <Text style={styles.viewAll}>View all</Text>
         </View>
+        <View style={styles.emptyDashboardCard}><View style={styles.emptyIcon}><Text style={styles.emptyIconText}>◷</Text></View><Text style={styles.emptyDashboardTitle}>No requests yet</Text><Text style={styles.emptyDashboardText}>New consultation requests will show up here.</Text></View>
 
-        <Text style={styles.panditSectionTitle}>Your workspace</Text>
-        <View style={styles.workspaceCard}>
-          <View style={styles.workspaceIcon}><Text style={styles.workspaceIconText}>✧</Text></View>
-          <View style={styles.workspaceCopy}><Text style={styles.workspaceTitle}>Availability</Text><Text style={styles.workspaceCaption}>You’re offline while your profile is under review.</Text></View>
-          <View style={styles.offlinePill}><View style={styles.offlineDot} /><Text style={styles.offlineText}>Offline</Text></View>
+        <View style={styles.panditSectionHeader}>
+          <Text style={styles.sectionTitle}>Recent activity</Text>
+          <Text style={styles.viewAll}>History</Text>
         </View>
-        <View style={styles.workspaceCard}>
-          <View style={[styles.workspaceIcon, styles.goldIcon]}><Text style={styles.goldIconText}>₹</Text></View>
-          <View style={styles.workspaceCopy}><Text style={styles.workspaceTitle}>Earnings</Text><Text style={styles.workspaceCaption}>Your consultation earnings will appear here.</Text></View>
-          <Text style={styles.workspaceArrow}>›</Text>
-        </View>
+        <View style={styles.emptyActivity}><Text style={styles.emptyDashboardText}>Your completed consultations and earnings will appear here.</Text></View>
 
         <View style={styles.helpCard}>
-          <Text style={styles.helpTitle}>Need help?</Text>
-          <Text style={styles.helpText}>Your profile is saved. Verification and consultation tools will be available in the next steps.</Text>
+          <Text style={styles.helpTitle}>Ready to help someone?</Text>
+          <Text style={styles.helpText}>Keep your profile up to date. Requests, consultations and earnings will appear here as those features are connected.</Text>
         </View>
       </ScrollView>
     );
@@ -102,7 +132,6 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
         <ScrollView style={styles.screen} contentContainerStyle={styles.homeContent}>
           <View style={styles.header}>
             <Text style={styles.brand}>NakshatraAI</Text>
-            <Pressable onPress={onSignOut}><Text style={styles.signOutLink}>Sign out</Text></Pressable>
           </View>
           <Text style={styles.greeting}>Namaste{name ? `, ${name}` : ''} 🙏</Text>
           <Text style={styles.homeTitle}>Find clarity with NakshatraAI</Text>
@@ -137,7 +166,9 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
           ))}
           <Pressable style={styles.walletCta} onPress={() => setTab('wallet')}><Text style={styles.walletCtaText}>Open Wallet</Text></Pressable>
         </ScrollView>
-      ) : tab === 'pandits' ? <PanditListScreen /> : (
+      ) : tab === 'pandits' ? <PanditListScreen /> : tab === 'profile' ? (
+        <ProfileScreen uid={uid} role="user" onBack={() => setTab('home')} onSignOut={onSignOut} />
+      ) : (
         <ScrollView style={styles.screen} contentContainerStyle={styles.placeholderContent}>
           <Text style={styles.brand}>{tab === 'wallet' ? 'Wallet' : 'Transaction History'}</Text>
           <View style={styles.placeholderCard}>
@@ -147,9 +178,9 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
         </ScrollView>
       )}
       <View style={styles.tabBar}>
-        {(['home', 'pandits', 'wallet', 'history'] as UserTab[]).map((item) => (
+        {(['home', 'pandits', 'wallet', 'history', 'profile'] as UserTab[]).map((item) => (
           <Pressable key={item} style={styles.tabButton} onPress={() => setTab(item)}>
-            <Text style={[styles.tabIcon, tab === item && styles.activeTab]}>{item === 'home' ? '⌂' : item === 'pandits' ? '✧' : item === 'wallet' ? '₹' : '≡'}</Text>
+            <Text style={[styles.tabIcon, tab === item && styles.activeTab]}>{item === 'home' ? '⌂' : item === 'pandits' ? '✧' : item === 'wallet' ? '₹' : item === 'history' ? '≡' : '●'}</Text>
             <Text style={[styles.tabLabel, tab === item && styles.activeTab]}>{item === 'history' ? 'History' : item[0].toUpperCase() + item.slice(1)}</Text>
           </Pressable>
         ))}
@@ -167,14 +198,30 @@ const styles = StyleSheet.create({
   panditHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 18, paddingBottom: 17, borderBottomWidth: 1, borderBottomColor: '#EEE6E9', marginHorizontal: -20, paddingHorizontal: 20 },
   panditBrand: { color: '#301653', fontSize: 19, fontWeight: '800' },
   panditHeaderCaption: { color: '#8A8190', fontSize: 9, fontWeight: '800', letterSpacing: 1.3, marginTop: 2 },
-  headerSignOut: { borderWidth: 1, borderColor: '#E5DDE9', backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
-  headerSignOutText: { color: '#512779', fontSize: 12, fontWeight: '700' },
   panditWelcome: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 22, paddingBottom: 18 },
   welcomeCopy: { flex: 1, paddingRight: 12 },
   panditGreeting: { color: '#684395', fontSize: 14, fontWeight: '700' },
   panditHeadline: { color: '#251A30', fontSize: 22, lineHeight: 28, fontWeight: '800', marginTop: 7 },
   welcomeMark: { width: 58, height: 58, borderRadius: 29, borderWidth: 1, borderColor: '#E7BD60', backgroundColor: '#F0E5F6', alignItems: 'center', justifyContent: 'center' },
   welcomeOm: { color: '#512779', fontSize: 29 },
+  availabilityCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 15, paddingHorizontal: 15, paddingVertical: 14 },
+  availabilityCopy: { flex: 1 },
+  availabilityTitle: { color: '#342A3D', fontSize: 14, fontWeight: '800' },
+  availabilityCaption: { color: '#89828E', fontSize: 11, marginTop: 4 },
+  availabilityError: { color: '#B3261E', fontSize: 12, marginTop: 7 },
+  availabilityNote: { color: '#89828E', fontSize: 10, lineHeight: 15, marginTop: 7, paddingHorizontal: 2 },
+  statsRow: { flexDirection: 'row', gap: 8 },
+  statCard: { flex: 1, minHeight: 90, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 14, padding: 10 },
+  statValue: { color: '#351759', fontSize: 20, fontWeight: '800' },
+  statLabel: { color: '#342A3D', fontSize: 10, fontWeight: '800', marginTop: 5 },
+  statCaption: { color: '#89828E', fontSize: 8, marginTop: 3 },
+  panditSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 13, marginBottom: 10 },
+  emptyDashboardCard: { alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 15, padding: 20 },
+  emptyIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F0E5F6', alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
+  emptyIconText: { color: '#512779', fontSize: 20 },
+  emptyDashboardTitle: { color: '#342A3D', fontSize: 14, fontWeight: '800', marginBottom: 5 },
+  emptyDashboardText: { color: '#89828E', fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  emptyActivity: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 14, padding: 16 },
   reviewCard: { backgroundColor: '#351759', borderRadius: 17, padding: 17 },
   reviewCardTop: { flexDirection: 'row', alignItems: 'center' },
   reviewIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#4B2C6B', alignItems: 'center', justifyContent: 'center', marginRight: 11 },
@@ -187,6 +234,13 @@ const styles = StyleSheet.create({
   statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EAC45F', marginRight: 7 },
   statusBadgeText: { color: '#F7E7B3', fontSize: 9, fontWeight: '800', letterSpacing: 0.7 },
   reviewBody: { color: '#E5D9ED', fontSize: 12, lineHeight: 18, marginTop: 10 },
+  profileAction: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 14, padding: 12, marginTop: 12 },
+  profileActionIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F0E5F6', alignItems: 'center', justifyContent: 'center', marginRight: 11 },
+  profileActionIconText: { color: '#512779', fontSize: 20, fontWeight: '800' },
+  profileActionCopy: { flex: 1 },
+  profileActionTitle: { color: '#342A3D', fontSize: 13, fontWeight: '800' },
+  profileActionCaption: { color: '#89828E', fontSize: 10, marginTop: 3 },
+  profileActionArrow: { color: '#948D99', fontSize: 22, marginLeft: 8 },
   panditSectionTitle: { color: '#251A30', fontSize: 17, fontWeight: '800', marginTop: 23, marginBottom: 11 },
   journeyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 16, paddingHorizontal: 15, paddingVertical: 4 },
   journeyRow: { flexDirection: 'row', alignItems: 'center', minHeight: 65 },
@@ -221,7 +275,6 @@ const styles = StyleSheet.create({
   homeContent: { paddingHorizontal: 20, paddingBottom: 22 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#EEE6E9', marginHorizontal: -20, paddingHorizontal: 20 },
   brand: { color: '#301653', fontSize: 20, fontWeight: '800' },
-  signOutLink: { color: '#684395', fontSize: 13, fontWeight: '700' },
   greeting: { color: '#684395', fontWeight: '700', fontSize: 15, marginTop: 10 },
   homeTitle: { color: '#251A30', fontSize: 25, lineHeight: 31, fontWeight: '800', marginTop: 12 },
   homeSubtitle: { color: '#746C78', fontSize: 14, marginTop: 7, marginBottom: 17 },
@@ -267,6 +320,4 @@ const styles = StyleSheet.create({
   tile: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#EEEAF1' },
   tileTitle: { color: '#30283A', fontWeight: '700', fontSize: 15 },
   tileBody: { color: '#716B76', fontSize: 13, lineHeight: 19, marginTop: 5 },
-  signOutButton: { borderWidth: 1, borderColor: '#301653', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 18, backgroundColor: '#FFFFFF' },
-  signOutText: { color: '#301653', fontSize: 15, fontWeight: '700' },
 });

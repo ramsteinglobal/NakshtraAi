@@ -33,7 +33,6 @@ firebase-debug.log
 .env
 .env*.local
 !.env.example
-google-services.json
 GoogleService-Info.plist
 
 # TypeScript

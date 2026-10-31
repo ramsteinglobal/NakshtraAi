@@ -63,7 +63,7 @@ export default function App() {
   if (status === 'loading') {
     return (
       <View style={[styles.app, styles.loadingApp, { paddingTop: topInset }]}>
-        <StatusBar barStyle="dark-content" translucent={Platform.OS === 'android'} backgroundColor="transparent" />
+        <StatusBar barStyle="dark-content" />
         <ActivityIndicator />
       </View>
     );
@@ -71,7 +71,7 @@ export default function App() {
 
   return (
     <View style={[styles.app, { paddingTop: topInset, backgroundColor: status === 'signedIn' && role ? '#FAF5EF' : '#FFFFFF' }]}>
-      <StatusBar barStyle="dark-content" translucent={Platform.OS === 'android'} backgroundColor="transparent" />
+      <StatusBar barStyle="dark-content" />
       {status === 'signedOut' || !uid ? (
         <LoginScreen />
       ) : role && profileComplete ? (

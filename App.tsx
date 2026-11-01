@@ -1,7 +1,6 @@
 
 import RootNavigator from './src/navigation/RootNavigator';
-
-import { StatusBar } from 'react-native';
+import { StatusBar, Platform } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import HomeScreen from './src/screens/HomeScreen';

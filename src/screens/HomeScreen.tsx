@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Switch } from 'react-native';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { UserRole } from '../types';
 import PanditListScreen from './PanditListScreen';

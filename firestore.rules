@@ -33,7 +33,8 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // pandits/{uid}
+    // TEMPORARY MVP BEHAVIOR: new Pandit profiles are approved at signup.
+    // Before production, restore admin/backend-only approval.
     match /pandits/{uid} {
       // Signed-in users can view approved/pending profiles.
       allow read: if signedIn();
@@ -44,7 +45,7 @@ service cloud.firestore {
       allow create: if isSelf(uid)
         && request.resource.data.uid == uid
         && request.resource.data.profileComplete == true
-        && request.resource.data.verificationStatus == 'pending'
+        && request.resource.data.verificationStatus == 'approved'
         && request.resource.data.rating == 0
         && request.resource.data.availability == 'offline'
         && (!('reviewCount' in request.resource.data)

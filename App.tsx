@@ -19,6 +19,7 @@ export default function App() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [profileComplete, setProfileComplete] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const topInset = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
 
   useEffect(() => {
     return watchAuth(async (user) => {
@@ -67,14 +68,15 @@ export default function App() {
 
   if (status === 'loading') {
     return (
-      <View style={styles.center}>
+      <View style={[styles.app, styles.loadingApp, { paddingTop: topInset }]}>
+        <StatusBar barStyle="dark-content" />
         <ActivityIndicator />
       </View>
     );
   }
 
   return (
-    <View style={styles.app}>
+    <View style={[styles.app, { paddingTop: topInset, backgroundColor: status === 'signedIn' && role ? '#FAF5EF' : '#FFFFFF' }]}>
       <StatusBar barStyle="dark-content" />
       {status === 'signedOut' || !uid ? (
         <LoginScreen />
@@ -108,9 +110,9 @@ const styles = StyleSheet.create({
   app: {
     flex: 1,
   },
-  center: {
-    flex: 1,
+  loadingApp: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
 });

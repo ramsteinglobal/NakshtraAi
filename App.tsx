@@ -1,6 +1,9 @@
+
+import RootNavigator from './src/navigation/RootNavigator';
+
 import { StatusBar } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Alert, ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
@@ -50,14 +53,17 @@ export default function App() {
     });
   }, []);
 
-  const handleSignedOut = useCallback(async () => {
+ const handleSignedOut = useCallback(async () => {
+  console.log('SIGN OUT BUTTON PRESSED');
+
+  try {
     await signOutUser();
-    setStatus('signedOut');
-    setRole(null);
-    setProfileComplete(false);
-    setDisplayName('');
-    setUid(null);
-  }, []);
+    console.log('FIREBASE SIGN OUT SUCCESS');
+  } catch (error) {
+    console.error('FIREBASE SIGN OUT FAILED:', error);
+    Alert.alert('Sign Out Error', String(error));
+  }
+}, []);
 
   if (status === 'loading') {
     return (
@@ -73,7 +79,12 @@ export default function App() {
       {status === 'signedOut' || !uid ? (
         <LoginScreen />
       ) : role && profileComplete ? (
-        <HomeScreen role={role} uid={uid} name={displayName} onSignOut={handleSignedOut} />
+        <RootNavigator
+  role={role}
+  uid={uid}
+  name={displayName}
+  onSignOut={handleSignedOut}
+/>
       ) : role ? (
         <ProfileSetupScreen
           uid={uid}

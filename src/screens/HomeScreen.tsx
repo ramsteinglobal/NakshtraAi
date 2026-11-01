@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+
 import type { UserRole } from '../types';
 import PanditListScreen from './PanditListScreen';
 import ProfileScreen from './ProfileScreen';
@@ -129,22 +130,53 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
   return (
     <View style={styles.userApp}>
       {tab === 'home' ? (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.homeContent}>
+        <ScrollView style={styles.screen} contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.brand}>NakshatraAI</Text>
+            <View>
+              <Text style={styles.brand}>NakshatraAI</Text>
+              <Text style={styles.brandTagline}>YOUR PERSONAL ASTROLOGY GUIDE</Text>
+            </View>
+            <View style={styles.profileButton}>
+              <Text style={styles.profileInitial}>{(name?.trim()?.[0] || 'I').toUpperCase()}</Text>
+            </View>
           </View>
-          <Text style={styles.greeting}>Namaste{name ? `, ${name}` : ''} 🙏</Text>
-          <Text style={styles.homeTitle}>Find clarity with NakshatraAI</Text>
+
+          <Text style={styles.greeting}>Namaste, {name || 'there'}  🙏</Text>
+          <Text style={styles.homeTitle}>Find clarity with{'\n'}NakshatraAI</Text>
           <Text style={styles.homeSubtitle}>Connect with verified Pandits for guidance.</Text>
+
+          <Pressable style={styles.searchBar} onPress={() => setTab('pandits')} accessibilityRole="button">
+            <Text style={styles.searchIcon}>⌕</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search Pandits and services"
+              placeholderTextColor="#99929D"
+              editable={false}
+              pointerEvents="none"
+            />
+            <View style={styles.searchButton}><Text style={styles.searchButtonText}>Search</Text></View>
+          </Pressable>
+
           <Pressable style={styles.heroCard} onPress={() => setTab('pandits')}>
-            <Text style={styles.heroTitle}>Your next chapter starts here</Text>
+            <Text style={styles.heroEyebrow}>PERSONAL GUIDANCE</Text>
+            <Text
+  style={styles.heroTitle}
+  allowFontScaling={false}
+>
+  Your next chapter starts here
+</Text>
             <Text style={styles.heroBody}>Explore Vedic astrology, career, relationships and more.</Text>
             <Text style={styles.heroAction}>Explore Pandits  →</Text>
           </Pressable>
+
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular Pandits</Text>
-            <Pressable onPress={() => setTab('pandits')}><Text style={styles.viewAll}>View all</Text></Pressable>
+            <View>
+              <Text style={styles.sectionTitle}>Popular Pandits</Text>
+              <Text style={styles.sectionSubtitle}>Connect with experienced professionals</Text>
+            </View>
+            <Pressable onPress={() => setTab('pandits')}><Text style={styles.viewAll}>View all →</Text></Pressable>
           </View>
+
           {popularLoading ? <ActivityIndicator color="#512779" style={styles.loader} /> : null}
           {!popularLoading && popular.length === 0 ? (
             <Pressable style={styles.emptyPreview} onPress={() => setTab('pandits')}>
@@ -161,10 +193,23 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
                 <Text style={styles.rating}>{pandit.rating > 0 ? `★ ${pandit.rating.toFixed(1)}` : 'New profile'}{pandit.city ? `  ·  ${pandit.city}` : ''}</Text>
                 <Text style={pandit.availability === 'online' ? styles.online : styles.offline}>● {pandit.availability === 'online' ? 'Online' : 'Offline'}</Text>
               </View>
-              <Text style={styles.price}>₹{pandit.ratePerMinute}/min  ›</Text>
+              <View style={styles.priceWrap}>
+                <Text style={styles.price}>₹{pandit.ratePerMinute}</Text>
+                <Text style={styles.priceUnit}>/min</Text>
+                <Text style={styles.cardChevron}>›</Text>
+              </View>
             </Pressable>
           ))}
-          <Pressable style={styles.walletCta} onPress={() => setTab('wallet')}><Text style={styles.walletCtaText}>Open Wallet</Text></Pressable>
+
+          <Pressable style={styles.walletCta} onPress={() => setTab('wallet')}>
+            <View style={styles.walletIcon}><Text style={styles.walletIconText}>₹</Text></View>
+            <View style={styles.walletCopy}>
+              <Text style={styles.walletTitle}>Your Nakshatra Wallet</Text>
+              <Text style={styles.walletSubtitle}>Manage your balance and payments</Text>
+            </View>
+            <Text style={styles.walletArrow}>›</Text>
+          </Pressable>
+          <Text style={styles.footerCaption}>Guidance for your journey, all in one place.</Text>
         </ScrollView>
       ) : tab === 'pandits' ? <PanditListScreen /> : tab === 'profile' ? (
         <ProfileScreen uid={uid} role="user" onBack={() => setTab('home')} onSignOut={onSignOut} />
@@ -272,36 +317,57 @@ const styles = StyleSheet.create({
   helpCard: { backgroundColor: '#F0E8F5', borderRadius: 14, padding: 15, marginTop: 8 },
   helpTitle: { color: '#512779', fontSize: 13, fontWeight: '800' },
   helpText: { color: '#665574', fontSize: 11, lineHeight: 17, marginTop: 5 },
-  homeContent: { paddingHorizontal: 20, paddingBottom: 22 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#EEE6E9', marginHorizontal: -20, paddingHorizontal: 20 },
-  brand: { color: '#301653', fontSize: 20, fontWeight: '800' },
-  greeting: { color: '#684395', fontWeight: '700', fontSize: 15, marginTop: 10 },
-  homeTitle: { color: '#251A30', fontSize: 25, lineHeight: 31, fontWeight: '800', marginTop: 12 },
-  homeSubtitle: { color: '#746C78', fontSize: 14, marginTop: 7, marginBottom: 17 },
-  heroCard: { backgroundColor: '#351759', borderRadius: 18, padding: 20 },
-  heroTitle: { color: '#EAC45F', fontSize: 20, lineHeight: 26, fontWeight: '800' },
-  heroBody: { color: '#FFFFFF', fontSize: 14, lineHeight: 21, marginTop: 9 },
+  homeContent: { paddingHorizontal: 20, paddingBottom: 112, flexGrow: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 13, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#EEE6E9', marginHorizontal: -20, paddingHorizontal: 20 },
+  brand: { color: '#301653', fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  brandTagline: { color: '#8A8190', fontSize: 9, letterSpacing: 1.5, marginTop: 5, fontWeight: '600' },
+  profileButton: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#351759', borderWidth: 2, borderColor: '#EAC45F', alignItems: 'center', justifyContent: 'center' },
+  profileInitial: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  signOutLink: { color: '#684395', fontSize: 13, fontWeight: '700' },
+  greeting: { color: '#684395', fontWeight: '700', fontSize: 15, marginTop: 16 },
+  homeTitle: { color: '#251A30', fontSize: 32, lineHeight: 39, fontWeight: '800', marginTop: 8, letterSpacing: -0.8 },
+  homeSubtitle: { color: '#746C78', fontSize: 15, marginTop: 6, marginBottom: 18 },
+  searchBar: { height: 64, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7E0E8', borderRadius: 18, paddingLeft: 16, paddingRight: 7, marginBottom: 27 },
+  searchIcon: { color: '#512779', fontSize: 28, marginRight: 10 },
+  searchInput: { flex: 1, color: '#342A3D', fontSize: 14, paddingVertical: 6 },
+  searchButton: { backgroundColor: '#351759', borderRadius: 13, paddingHorizontal: 17, paddingVertical: 11 },
+  searchButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  heroCard: { backgroundColor: '#351759', borderRadius: 27, paddingHorizontal: 25, paddingVertical: 24, minHeight: 216, justifyContent: 'center' },
+  heroEyebrow: { color: '#EAC45F', fontSize: 11, fontWeight: '800', letterSpacing: 1.7, marginBottom: 12 },
+  heroTitle: { color: '#FFFFFF', fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.3 },
+  heroBody: { color: '#F2EAF7', fontSize: 14, lineHeight: 20, marginTop: 8 },
   heroAction: { color: '#EAC45F', fontSize: 14, fontWeight: '800', marginTop: 17 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 23, marginBottom: 11 },
-  sectionTitle: { color: '#251A30', fontSize: 17, fontWeight: '800' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 28, marginBottom: 16 },
+  sectionTitle: { color: '#251A30', fontSize: 20, fontWeight: '800' },
+  sectionSubtitle: { color: '#8A828D', fontSize: 13, marginTop: 5 },
   viewAll: { color: '#512779', fontSize: 13, fontWeight: '700' },
   loader: { marginVertical: 22 },
   emptyPreview: { alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EBE4EC', borderRadius: 15, padding: 20 },
   emptyTitle: { color: '#352A3D', fontSize: 14, fontWeight: '700' },
   emptyText: { color: '#817985', fontSize: 12, marginTop: 5, textAlign: 'center' },
-  popularCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 15, borderWidth: 1, borderColor: '#EBE4EC', padding: 12, marginBottom: 10 },
-  avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#F0E5F6', alignItems: 'center', justifyContent: 'center', marginRight: 11 },
-  avatarOm: { color: '#512779', fontSize: 25 },
+  popularCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 23, borderWidth: 1, borderColor: '#EBE4EC', padding: 15, minHeight: 126, marginBottom: 12 },
+  avatar: { width: 72, height: 72, borderRadius: 23, backgroundColor: '#F0E5F6', alignItems: 'center', justifyContent: 'center', marginRight: 15 },
+  avatarOm: { color: '#512779', fontSize: 34 },
   popularInfo: { flex: 1 },
-  panditName: { color: '#271C30', fontWeight: '700', fontSize: 14 },
-  panditMeta: { color: '#817985', fontSize: 11, marginTop: 3 },
-  rating: { color: '#42384A', fontSize: 11, fontWeight: '600', marginTop: 4 },
-  online: { color: '#27814D', fontSize: 10, fontWeight: '700', marginTop: 3 },
-  offline: { color: '#837D89', fontSize: 10, fontWeight: '600', marginTop: 3 },
-  price: { color: '#321953', fontSize: 12, fontWeight: '800', marginLeft: 5 },
-  walletCta: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E7DEE8', borderRadius: 14, alignItems: 'center', paddingVertical: 14, marginTop: 3 },
+  panditName: { color: '#271C30', fontWeight: '800', fontSize: 16 },
+  panditMeta: { color: '#817985', fontSize: 13, marginTop: 5 },
+  rating: { color: '#927A35', fontSize: 12, fontWeight: '700', marginTop: 6 },
+  online: { color: '#27814D', fontSize: 11, fontWeight: '700', marginTop: 5 },
+  offline: { color: '#837D89', fontSize: 11, fontWeight: '600', marginTop: 5 },
+  priceWrap: { alignItems: 'flex-end', marginLeft: 5 },
+  price: { color: '#321953', fontSize: 20, fontWeight: '800' },
+  priceUnit: { color: '#8A828D', fontSize: 11, marginTop: 1 },
+  cardChevron: { color: '#512779', fontSize: 23, marginTop: 7 },
+  walletCta: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0E8F5', borderWidth: 1, borderColor: '#E2D5E9', borderRadius: 22, padding: 17, marginTop: 24, minHeight: 104 },
+  walletIcon: { width: 60, height: 60, borderRadius: 17, backgroundColor: '#351759', alignItems: 'center', justifyContent: 'center', marginRight: 15 },
+  walletIconText: { color: '#EAC45F', fontSize: 27, fontWeight: '800' },
+  walletCopy: { flex: 1 },
+  walletTitle: { color: '#351759', fontSize: 16, fontWeight: '800' },
+  walletSubtitle: { color: '#716A76', fontSize: 12, marginTop: 5 },
+  walletArrow: { color: '#351759', fontSize: 27, marginLeft: 8 },
+  footerCaption: { color: '#AAA3AD', textAlign: 'center', fontSize: 12, marginTop: 34, marginBottom: 20 },
   walletCtaText: { color: '#321953', fontSize: 14, fontWeight: '800' },
-  tabBar: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#EEE7EF', paddingTop: 8, paddingBottom: 7 },
+  tabBar: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#EEE7EF', paddingTop: 10, paddingBottom: 11 },
   tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
   tabIcon: { color: '#938B98', fontSize: 20, lineHeight: 22 },
   tabLabel: { color: '#817985', fontSize: 10, marginTop: 3 },

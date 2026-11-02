@@ -6,6 +6,8 @@ import PanditListScreen from './PanditListScreen';
 import ProfileScreen from './ProfileScreen';
 import { fetchApprovedPandits, type Pandit } from '../services/pandits';
 import { fetchPanditProfileStatus, updatePanditAvailability } from '../services/auth';
+import WalletScreen from './WalletScreen';
+import TransactionHistoryScreen from './TransactionHistoryScreen';
 
 type Props = { role: UserRole; uid: string; name?: string; onSignOut: () => void };
 type UserTab = 'home' | 'pandits' | 'wallet' | 'history' | 'profile';
@@ -211,17 +213,13 @@ export default function HomeScreen({ role, uid, name, onSignOut }: Props) {
           </Pressable>
           <Text style={styles.footerCaption}>Guidance for your journey, all in one place.</Text>
         </ScrollView>
-      ) : tab === 'pandits' ? <PanditListScreen /> : tab === 'profile' ? (
-        <ProfileScreen uid={uid} role="user" onBack={() => setTab('home')} onSignOut={onSignOut} />
-      ) : (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.placeholderContent}>
-          <Text style={styles.brand}>{tab === 'wallet' ? 'Wallet' : 'Transaction History'}</Text>
-          <View style={styles.placeholderCard}>
-            <Text style={styles.placeholderTitle}>{tab === 'wallet' ? 'Your wallet is coming next' : 'Your history is coming next'}</Text>
-            <Text style={styles.placeholderText}>{tab === 'wallet' ? 'Wallet balance and secure top-ups will be added with the payment system.' : 'Consultation and payment records will appear here once bookings are enabled.'}</Text>
-          </View>
-        </ScrollView>
-      )}
+      ) : tab === 'pandits' ? (
+  <PanditListScreen />
+) : tab === 'wallet' ? (
+  <WalletScreen />
+) : (
+  <TransactionHistoryScreen />
+)}
       <View style={styles.tabBar}>
         {(['home', 'pandits', 'wallet', 'history', 'profile'] as UserTab[]).map((item) => (
           <Pressable key={item} style={styles.tabButton} onPress={() => setTab(item)}>
